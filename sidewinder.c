@@ -392,8 +392,8 @@ void sidewinder_handle_media_keypress(uint64_t press){
 		case 0x110000000000: /*Unmapped*/ break;
 		case 0x140000000000: sidewinder_set_profile(_sidewinder_current_profile + 1); break;
 		case 0xcd: sidewinder_send_key(KEY_PLAYPAUSE); break;
-		case 0xb6: sidewinder_send_key(KEY_BACK); break;
-		case 0xb5: sidewinder_send_key(KEY_FORWARD); break;
+		case 0xb6: sidewinder_send_key(KEY_PREVIOUSSONG); break;
+		case 0xb5: sidewinder_send_key(KEY_NEXTSONG); break;
 		case 0xe2: sidewinder_send_key(KEY_MUTE); break;
 		case 0xea: sidewinder_send_key(KEY_VOLUMEDOWN); break;
 		case 0xe9: sidewinder_send_key(KEY_VOLUMEUP); break;
