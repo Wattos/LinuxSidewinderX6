@@ -1,0 +1,84 @@
+================================================================================
+LICENSE
+================================================================================
+
+    README for sidewinder-x6-macro-keys
+    Copyright (C) 2011 Filip Wieladek
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+================================================================================
+DESCRIPTION
+================================================================================
+
+This is a user level driver for the Microsoft keyboard "Sidewinder X6". This user level driver enables the macros on the keyboard as well as allows to switch between profiles. This driver also supports the numpad as a macro pad (which can be configured). 
+
+================================================================================
+REQUIREMENTS
+================================================================================
+
+To build this driver, you should have the following:
+  * Linux (was tested on Ubuntu 11.10 64bit)
+  * a C compiler (gcc)
+  * linux header files
+  * libusb1.0 header files
+
+on Ubuntu you can do:
+ sudo apt-get install build-essential
+ sudo apt-get install libusb-1.0-0-dev
+
+================================================================================
+BUILDING
+================================================================================
+
+To build the driver simply navigate to the place where the source files are and type:
+	make
+
+This will build the driver.
+
+================================================================================
+USAGE
+================================================================================
+You must run the driver as a super user, e.g. using sudo:
+    sudo ./sidewinder-x6-macro-keys
+
+This will run as a daemon in the background untill it is killed (using the kill command). If you want to run the driver in the forground, run it with the -f option:
+    sudo ./sidewinder-x6-macro-keys -f
+
+When the driver is first executed it will create the following directories:
+    <HOME>/.sidewinderx6
+    <HOME>/.sidewinderx6/p1 (Profile folder 1)
+    <HOME>/.sidewinderx6/p2 (Profile folder 2)
+    <HOME>/.sidewinderx6/p3 (Profile folder 3)
+where <HOME> stands for the users home path. 
+
+To create a macro, simply create a file called %x.sh in one of the profile folders. Eg. if you want a macro to be executed for button S5 in the keyboard, create a S5.sh script. Make sure you set it to executable (chmod +x S5.sh) otherwise it will not execute.
+
+If you want to simulate keypresses, use google, there should be already applications with that functionality. 
+
+Finally, if you want to have your numpad working as a macro pad, create a file called macro_numpad and write the number 1 to it. E.g.:
+	echo 1 > <HOME>/.sidewinderx6/p1/macro_numpad
+
+If you want to use it as a numpad again, either delete the file, or write something other than a 1 into it:
+	echo 0 > <HOME>/.sidewinderx6/p1/macro_numpad
+
+
+================================================================================
+KNOWN ISSUES
+================================================================================
+  * When the process is killed, the media buttons are not working anymore. This is because the Kernel driver is not attached again. 
+
+  * The folders created are created with root as an owner. Therefore, one requires root priviliges to add files, modify scripts.
+
+
