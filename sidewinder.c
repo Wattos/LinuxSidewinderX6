@@ -452,21 +452,18 @@ void sidewinder_die(int signal){
 
 void sidewinder_cleanup(){
 	closelog();
-	printf("Killing 1");
 	if(_sidewinder_keyboard_handle > 0){
 		libusb_close(_sidewinder_keyboard_handle);
 		libusb_release_interface(_sidewinder_keyboard_handle, SIDEWINDER_USB_MACRO_KEYS_INTERFACE);
 		libusb_attach_kernel_driver(_sidewinder_keyboard_handle, SIDEWINDER_USB_MACRO_KEYS_INTERFACE);
 	}
-	printf("Killing 2");
+
 	if(_sidewinder_usb_context != NULL)
 		libusb_exit(_sidewinder_usb_context);
 
-	printf("Killing 3");
 	if(_sidewinder_virtual_keyboard_file > 0)
 		close(_sidewinder_virtual_keyboard_file);
 
-	printf("Killing 4");
 	_sidewinder_keyboard_handle = NULL;
 	_sidewinder_usb_context = NULL;
 }
