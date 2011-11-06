@@ -22,14 +22,14 @@ LICENSE
 DESCRIPTION
 ================================================================================
 
-This is a user level driver for the Microsoft keyboard "Sidewinder X6". This user level driver enables the macros on the keyboard as well as allows to switch between profiles. This driver also supports the numpad as a macro pad (which can be configured). 
+This is a user level driver for the Microsoft keyboard "Sidewinder X6". This user level driver enables the macros on the keyboard as well as allows to switch between profiles. This driver also supports the numpad as a macro pad (which can be configured).
 
 ================================================================================
 REQUIREMENTS
 ================================================================================
 
 To build this driver, you should have the following:
-  * Linux (was tested on Ubuntu 11.10 64bit)
+  * Linux (was tested on Ubuntu 11.10 64bit and Fedora 15 64bit)
   * a C compiler (gcc)
   * linux header files
   * libusb1.0 header files
@@ -55,6 +55,12 @@ You must run the driver as a super user, e.g. using sudo:
 
 This will run as a daemon in the background untill it is killed (using the kill command). If you want to run the driver in the forground, run it with the -f option:
     sudo ./sidewinder-x6-macro-keys -f
+    
+For security reasons it's better NOT to to let the root user execute your macros (as in the above examples), so you'll probably want to use your own user for this.
+In order to make any user the "executor" of your macro scripts, just append the username like this:
+    sudo ./sidewinder-x6-macro-keys supertux
+    # or
+    sudo ./sidewinder-x6-macro-keys -f supertux
 
 When the driver is first executed it will create the following directories:
     <HOME>/.sidewinderx6
@@ -65,7 +71,7 @@ where <HOME> stands for the users home path.
 
 To create a macro, simply create a file called %x.sh in one of the profile folders. Eg. if you want a macro to be executed for button S5 in the keyboard, create a S5.sh script. Make sure you set it to executable (chmod +x S5.sh) otherwise it will not execute.
 
-If you want to simulate keypresses, use google, there should be already applications with that functionality. 
+If you want to simulate keypresses, use google, there should be already applications with that functionality (xdotool, for example).
 
 Finally, if you want to have your numpad working as a macro pad, create a file called macro_numpad and write the number 1 to it. E.g.:
 	echo 1 > <HOME>/.sidewinderx6/p1/macro_numpad
@@ -78,7 +84,4 @@ If you want to use it as a numpad again, either delete the file, or write someth
 KNOWN ISSUES
 ================================================================================
   * When the process is killed, the media buttons are not working anymore. This is because the Kernel driver is not attached again. 
-
-  * The folders created are created with root as an owner. Therefore, one requires root priviliges to add files, modify scripts.
-
 
