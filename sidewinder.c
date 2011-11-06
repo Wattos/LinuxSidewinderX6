@@ -24,6 +24,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
+#include <pwd.h>
 #include <syslog.h>
 #include <string.h>
 #include <signal.h>
@@ -40,6 +41,9 @@
 #include <libusb-1.0/libusb.h>
 
 #define SIDEWINDER_PROGRAM_NAME "sidewinder-x6-macro-keys"
+
+//Default username to run for
+#define ROOT "root"
 
 //Profile configuration constants
 #define SIDEWINDER_HOME_ENV_VAR "HOME"
@@ -83,6 +87,7 @@ void sidewinder_handle_keypress();
 void sidewinder_die(int signal);
 void sidewinder_run();
 void sidewinder_cleanup();
+void sidewinder_setup_user(int argc, char** argv);
 
 
 
@@ -100,20 +105,52 @@ int32_t _sidewinder_virtual_keyboard_file;
 uint64_t _sidewinder_lastpress = 0;
 volatile uint8_t _sidewinder_run = 1;
 
+char* user_name = ROOT;
+int32_t user_id = 0;
+char* user_home;
+
 int main(int argc, char** argv){
 	openlog(SIDEWINDER_PROGRAM_NAME, LOG_PID|LOG_CONS, LOG_USER);	
 	syslog(LOG_INFO, "%s starting", SIDEWINDER_PROGRAM_NAME);
 	sidewinder_single_instance();
 	sidewinder_initialize_signals();
 
-	if(argc < 2 || strncmp("-f", argv[1], 2) != 0)
-		sidewinder_setup_daemon();
+	int run_in_foreground = 0;
+	if (argc > 1) {
+		run_in_foreground = strncmp("-f", argv[1], 2) != 0;
+
+		sidewinder_setup_user(argc, argv);
+	}
+    
+	if(run_in_foreground){
+		sidewinder_setup_daemon();		
+	}
 
 	sidewinder_initialize_usb();
 	sidewinder_run();
 	sidewinder_cleanup();
 
 	exit(SIDEWINDER_EXIT_SUCCESS);	
+}
+
+void sidewinder_setup_user(int argc, char** argv) {
+	int bufsize = 5000; // TODO: too much?
+	char buf[bufsize]; 
+
+	struct passwd pwd;
+	struct passwd* result;
+
+    // todo this isnt pretty
+	if(argc == 2 && strncmp("-f", argv[1], 2) != 0) {
+		user_name = argv[1];
+	} else if(argc > 2) {
+	 	user_name = argv[argc - 1];
+ 	}
+
+ 	getpwnam_r(user_name, &pwd, buf, bufsize, &result);
+ 	user_id = pwd.pw_uid;
+ 	user_home = pwd.pw_dir;
+ 	syslog(LOG_INFO, "Running for username: %s, with pid: %d", user_name, user_id);
 }
 
 void sidewinder_single_instance(){
@@ -164,7 +201,7 @@ void sidewinder_setup_daemon(){
 
 /* Initializes the siderwinder program */
 void sidewinder_initialize(){
-	char* home_folder = getenv(SIDEWINDER_HOME_ENV_VAR);
+	char* home_folder = user_home;
 	uint8_t i = 0;
 
 	/* Create all folders. Note, that these folder will not be created if they already exist */
@@ -183,10 +220,11 @@ void sidewinder_initialize(){
 		syslog(LOG_INFO, "Using folder %s for profile data for profile %d", _sidewinder_profile_folder[i], i+1);
 		syslog(LOG_INFO, "Using file %s for profile configuration for profile %d", _sidewinder_profile_config[i], i+1);
 		syslog(LOG_INFO, "Using file %s for profile on load script for profile %d", _sidewinder_profile_load[i], i+1);
-
-		mkdir(_sidewinder_profile_folder[i], S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);			
+		
+		mkdir(_sidewinder_profile_folder[i], S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);		
 	}
 
+	setuid(0);
 	sidewinder_initialize_virtual_keyboard();
 
 	/* Initialize virtual keyboard */
@@ -247,10 +285,15 @@ void sidewinder_run_macro(uint8_t macro){
 
 	syslog(LOG_DEBUG, "Checking if %s exists", macro_full_path);	
 	if(stat(macro_full_path, &st) == 0){
-		syslog(LOG_INFO, "Executing %s", macro_full_path);
-		system(macro_full_path);
-	}else
+		syslog(LOG_INFO, "Executing %s as %s", macro_full_path, user_name);
+		
+		char command[1000];
+		sprintf(command, "su --session-command=\"%s\" %s &", macro_full_path, user_name);
+
+		system(command);
+	}else {
 		syslog(LOG_INFO, "%s does not exist. Will not be executed", macro_full_path);
+	}
 }
 
 void sidewinder_set_profile(uint8_t profile){
@@ -275,7 +318,11 @@ void sidewinder_set_profile(uint8_t profile){
 	syslog(LOG_DEBUG, "Looking for %s", load);
 	if(stat(load, &st) == 0){
 		syslog(LOG_INFO, "Executing %s", load);
-		system(load);
+		
+		char load_command[1000];
+		sprintf(load_command, "su --session-command=\"%s\" %s &", load, user_name);
+
+		system(load_command);
 	}else{
 		syslog(LOG_INFO, "%s does not exist. Will not be executed", load);	
 	}
