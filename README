@@ -29,7 +29,7 @@ REQUIREMENTS
 ================================================================================
 
 To build this driver, you should have the following:
-  * Linux (was tested on Ubuntu 11.10 64bit and Fedora 15 64bit)
+  * Linux
   * a C compiler (gcc)
   * linux header files
   * libusb1.0 header files
@@ -37,6 +37,10 @@ To build this driver, you should have the following:
 on Ubuntu you can do:
  sudo apt-get install build-essential
  sudo apt-get install libusb-1.0-0-dev
+
+Tested on:
+ * Ubuntu 11.10 64bit 
+ * Fedora 15 64bit)
 
 ================================================================================
 BUILDING
@@ -83,5 +87,5 @@ If you want to use it as a numpad again, either delete the file, or write someth
 ================================================================================
 KNOWN ISSUES
 ================================================================================
-  * When the process is killed, the media buttons are not working anymore. This is because the Kernel driver is not attached again. 
 
+ * None

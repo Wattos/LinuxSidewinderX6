@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <getopt.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
@@ -43,16 +44,18 @@
 #define SIDEWINDER_PROGRAM_NAME "sidewinder-x6-macro-keys"
 
 //Default username to run for
-#define ROOT "root"
+#define SIDEWINDER_FALLBACK_USER "root"
 
 //Profile configuration constants
-#define SIDEWINDER_HOME_ENV_VAR "HOME"
+#define SIDEWINDER_SUDO_USER_ENV_VAR "SUDO_USER"
+#define SIDEWINDER_USER_ENV_VAR "USER"
 #define SIDEWINDER_PROFILE_ROOT_FOLDER ".sidewinderx6"
 #define SIDEWINDER_MAX_PROFILE_COUNT 3
 #define SIDEWINDER_PROFILE_FOLDER_FORMAT "p%d"
 #define SIDEWINDER_PROFILE_CONFIG "macro_numpad"
 #define SIDEWINDER_MACRO_FORMAT "S%d.sh"
 #define SIDEWINDER_MACRO_LOAD   "load.sh"
+#define SIDEWINDER_COMMAND_FORMAT "su %s -c '%s &'"
 
 //Virutal keyboard constants
 #define SIDEWINDER_UINPUT "/dev/uinput"
@@ -73,6 +76,8 @@
 #define SIDEWINDER_EXIT_FAILURE 1
 #define SIDEWINDER_EXIT_SUCCESS 0
 
+/* Prototypes */
+void sidewinder_parse_arguments(int argc, char** argv);
 void sidewinder_single_instance();
 void sidewinder_setup_daemon();
 void sidewinder_initialize_signals();
@@ -84,45 +89,47 @@ void sidewinder_run_macro(uint8_t macro);
 void sidewinder_set_profile(uint8_t profile);
 uint8_t sidewinder_profile_has_macropad();
 void sidewinder_handle_keypress();
-void sidewinder_die(int signal);
+void sidewinder_signal_handler(int signal);
 void sidewinder_run();
 void sidewinder_cleanup();
-void sidewinder_setup_user(int argc, char** argv);
 
 
-
+/* The folders and files for the macro profiles */
 char _sidewinder_folder[SIDEWINDER_MAX_PATH_SIZE];
 char _sidewinder_profile_folder[SIDEWINDER_MAX_PROFILE_COUNT][SIDEWINDER_MAX_PATH_SIZE];
 char _sidewinder_profile_config[SIDEWINDER_MAX_PROFILE_COUNT][SIDEWINDER_MAX_PATH_SIZE];
 char _sidewinder_profile_load[SIDEWINDER_MAX_PROFILE_COUNT][SIDEWINDER_MAX_PATH_SIZE];
 
+/* The current profile of the keyboard */
 uint8_t _sidewinder_current_profile = 0;
 
-libusb_context* _sidewinder_usb_context = NULL; //a libusb session
+/* Usb variables */
+libusb_context* 	  _sidewinder_usb_context = NULL;
 libusb_device_handle* _sidewinder_keyboard_handle = NULL;
 
+/* virtual keyboard file. Required for media buttons like volume control */
 int32_t _sidewinder_virtual_keyboard_file;
+
+/* The last press. Used to determine release events */
 uint64_t _sidewinder_lastpress = 0;
+
+/* variable used to terminate the application */
 volatile uint8_t _sidewinder_run = 1;
 
-char* user_name = ROOT;
-int32_t user_id = 0;
-char* user_home;
+/* Arguments */
+int _sidewinder_run_as_daemon = 1;
+char _sidewinder_user_name[SIDEWINDER_MAX_PATH_SIZE];
+__uid_t _sidewinder_user_id = 0;
+char _sidewinder_user_home[SIDEWINDER_MAX_PATH_SIZE];
 
 int main(int argc, char** argv){
 	openlog(SIDEWINDER_PROGRAM_NAME, LOG_PID|LOG_CONS, LOG_USER);	
 	syslog(LOG_INFO, "%s starting", SIDEWINDER_PROGRAM_NAME);
+	sidewinder_parse_arguments(argc, argv);
 	sidewinder_single_instance();
 	sidewinder_initialize_signals();
-
-	int run_in_foreground = 0;
-	if (argc > 1) {
-		run_in_foreground = strncmp("-f", argv[1], 2) != 0;
-
-		sidewinder_setup_user(argc, argv);
-	}
     
-	if(run_in_foreground){
+	if(_sidewinder_run_as_daemon){
 		sidewinder_setup_daemon();		
 	}
 
@@ -133,37 +140,77 @@ int main(int argc, char** argv){
 	exit(SIDEWINDER_EXIT_SUCCESS);	
 }
 
-void sidewinder_setup_user(int argc, char** argv) {
-	int bufsize = 5000; // TODO: too much?
-	char buf[bufsize]; 
+void sidewinder_parse_arguments(int argc, char** argv) {
+	static struct option long_options[] = {
+      {"help",        no_argument, 0, 'h'},
+      {"foreground",  no_argument, &_sidewinder_run_as_daemon, 0},
+      {"user",  required_argument, 0, 'u'},
+      {0, 0, 0, 0}
+	};
+	int c;
+	int index;
+	_sidewinder_user_name[0] = '\0';
+	while ((c = getopt_long(argc, argv, "hfu:",  long_options, &index)) != -1)
+	{
+		switch(c){
+			case 'u':
+				strncpy(_sidewinder_user_name, optarg, sizeof(_sidewinder_user_name));
+				break;
+			case 'f':
+				_sidewinder_run_as_daemon = 0;
+				break;
+			case 'h':
+			default:
+				fprintf(stderr, "Usage: %s [-h] [-u <user>] [-f]\n", SIDEWINDER_PROGRAM_NAME);
+				fprintf(stderr, "\n");
+				fprintf(stderr, "   -h, --help                prints this usage dialog\n");
+				fprintf(stderr, "   -u <user>, --user <user>  Uses the user defined in <user> for running the macros\n");
+				fprintf(stderr, "   -f, --foreground          Runs in the foreground instead of running as a daemon\n");
+				exit(SIDEWINDER_EXIT_FAILURE);
+		}
+	}
 
+	if(_sidewinder_user_name[0] == '\0'){
+		strncpy(_sidewinder_user_name, getenv(SIDEWINDER_SUDO_USER_ENV_VAR), sizeof(_sidewinder_user_name));
+	}
+	if(_sidewinder_user_name[0] == '\0'){
+		strncpy(_sidewinder_user_name, getenv(SIDEWINDER_USER_ENV_VAR), sizeof(_sidewinder_user_name));
+	}
+	if(_sidewinder_user_name[0] == '\0'){
+		strncpy(_sidewinder_user_name, SIDEWINDER_FALLBACK_USER, sizeof(_sidewinder_user_name));
+	}
+
+	int bufsize = 512;
+	char buf[bufsize];
 	struct passwd pwd;
 	struct passwd* result;
 
-    // todo this isnt pretty
-	if(argc == 2 && strncmp("-f", argv[1], 2) != 0) {
-		user_name = argv[1];
-	} else if(argc > 2) {
-	 	user_name = argv[argc - 1];
- 	}
-
- 	getpwnam_r(user_name, &pwd, buf, bufsize, &result);
- 	user_id = pwd.pw_uid;
- 	user_home = pwd.pw_dir;
- 	syslog(LOG_INFO, "Running for username: %s, with pid: %d", user_name, user_id);
+	getpwnam_r(_sidewinder_user_name, &pwd, buf, bufsize, &result);
+ 	_sidewinder_user_id = pwd.pw_uid;
+ 	strncpy(_sidewinder_user_home, pwd.pw_dir, sizeof(_sidewinder_user_home));
+ 	syslog(LOG_INFO, "Running for username: %s, with pid: %d", _sidewinder_user_name, _sidewinder_user_id);
 }
 
 void sidewinder_single_instance(){
 	int pid_file = open("/var/run/sidewinder-x6.pid",  O_WRONLY|O_CREAT, 0666);
 	int rc = flock(pid_file, LOCK_EX | LOCK_NB);
 	if(rc) {
-		syslog(LOG_ERR, "Another instance is already running");
+		fprintf(stderr, "Could not start. The program is either not running with super user priviliges or another instance is already running\n");
+		syslog(LOG_ERR, "Could not start. The program is either not running with super user priviliges or another instance is already running");
 		exit(SIDEWINDER_EXIT_FAILURE);
 	}
 }
 
 void sidewinder_initialize_signals(){
-	/*TODO: Catch termination signals so that the regular driver can be attached again*/
+	struct sigaction act;
+	memset (&act, '\0', sizeof(act));
+	act.sa_handler = &sidewinder_signal_handler;
+	if (sigaction(SIGTERM, &act, NULL) < 0){
+		syslog(LOG_ERR, "Could not initialize Signal handler SIGTERM");
+	}
+	if (sigaction(SIGINT, &act, NULL) < 0){
+		syslog(LOG_ERR, "Could not initialize Signal handler SIGKILL");
+	}
 }
 
 /* Initializes the sidewinder daemon. */
@@ -201,14 +248,14 @@ void sidewinder_setup_daemon(){
 
 /* Initializes the siderwinder program */
 void sidewinder_initialize(){
-	char* home_folder = user_home;
 	uint8_t i = 0;
 
 	/* Create all folders. Note, that these folder will not be created if they already exist */
-	snprintf(_sidewinder_folder, SIDEWINDER_MAX_PATH_SIZE, "%s/%s", home_folder, SIDEWINDER_PROFILE_ROOT_FOLDER);
+	snprintf(_sidewinder_folder, SIDEWINDER_MAX_PATH_SIZE, "%s/%s", _sidewinder_user_home, SIDEWINDER_PROFILE_ROOT_FOLDER);
 
 	syslog(LOG_INFO, "Using folder %s for configuration data", _sidewinder_folder);	
 	mkdir(_sidewinder_folder, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+	chown(_sidewinder_folder, _sidewinder_user_id, -1);
 
 	for(i = 0; i < SIDEWINDER_MAX_PROFILE_COUNT; ++i){
 		char profile_folder[SIDEWINDER_MAX_PATH_SIZE];
@@ -221,7 +268,8 @@ void sidewinder_initialize(){
 		syslog(LOG_INFO, "Using file %s for profile configuration for profile %d", _sidewinder_profile_config[i], i+1);
 		syslog(LOG_INFO, "Using file %s for profile on load script for profile %d", _sidewinder_profile_load[i], i+1);
 		
-		mkdir(_sidewinder_profile_folder[i], S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);		
+		mkdir(_sidewinder_profile_folder[i], S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+		chown(_sidewinder_profile_folder[i], _sidewinder_user_id, -1);
 	}
 
 	setuid(0);
@@ -285,11 +333,10 @@ void sidewinder_run_macro(uint8_t macro){
 
 	syslog(LOG_DEBUG, "Checking if %s exists", macro_full_path);	
 	if(stat(macro_full_path, &st) == 0){
-		syslog(LOG_INFO, "Executing %s as %s", macro_full_path, user_name);
+		syslog(LOG_INFO, "Executing %s as %s", macro_full_path, _sidewinder_user_name);
 		
 		char command[1000];
-		sprintf(command, "su --session-command=\"%s\" %s &", macro_full_path, user_name);
-
+		snprintf(command, sizeof(command), SIDEWINDER_COMMAND_FORMAT, _sidewinder_user_name, macro_full_path);
 		system(command);
 	}else {
 		syslog(LOG_INFO, "%s does not exist. Will not be executed", macro_full_path);
@@ -320,7 +367,7 @@ void sidewinder_set_profile(uint8_t profile){
 		syslog(LOG_INFO, "Executing %s", load);
 		
 		char load_command[1000];
-		sprintf(load_command, "su --session-command=\"%s\" %s &", load, user_name);
+		snprintf(load_command, sizeof(load_command), SIDEWINDER_COMMAND_FORMAT, _sidewinder_user_name, load);
 
 		system(load_command);
 	}else{
@@ -414,7 +461,6 @@ void sidewinder_handle_macro_keypress(uint64_t press){
 	}
 }
 
-
 void sidewinder_get_profile_from_keyboard(){
 	uint8_t data[2];
 	int32_t r;
@@ -491,18 +537,17 @@ void sidewinder_handle_keypress(){
 	}
 }
 
-void sidewinder_die(int signal){
+void sidewinder_signal_handler(int signal){
 	_sidewinder_run = 0;
-	sidewinder_cleanup();
-	exit(signal);
+	libusb_reset_device(_sidewinder_keyboard_handle);
 }
 
 void sidewinder_cleanup(){
 	closelog();
 	if(_sidewinder_keyboard_handle > 0){
-		libusb_close(_sidewinder_keyboard_handle);
 		libusb_release_interface(_sidewinder_keyboard_handle, SIDEWINDER_USB_MACRO_KEYS_INTERFACE);
 		libusb_attach_kernel_driver(_sidewinder_keyboard_handle, SIDEWINDER_USB_MACRO_KEYS_INTERFACE);
+		libusb_close(_sidewinder_keyboard_handle);
 	}
 
 	if(_sidewinder_usb_context != NULL)
