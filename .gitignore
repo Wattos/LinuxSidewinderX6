@@ -1,0 +1,6 @@
+*.o
+*~
+*.tmp
+
+# ignore the binary too
+sidewinder-x6-macro-keys
