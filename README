@@ -53,11 +53,14 @@ USAGE
 You must run the driver as a super user, e.g. using sudo:
     sudo ./sidewinder-x6-macro-keys
 
-For security reasons it's better NOT to to let the root user execute your macros (as in the above example), and you'll probably want to use your own user for this. In order to make any user the "executor" of your macros, just append the username like this:
-    sudo ./sidewinder-x6-macro-keys supertux
-
 This will run as a daemon in the background untill it is killed (using the kill command). If you want to run the driver in the forground, run it with the -f option:
     sudo ./sidewinder-x6-macro-keys -f
+    
+For security reasons it's better NOT to to let the root user execute your macros (as in the above examples), so you'll probably want to use your own user for this.
+In order to make any user the "executor" of your macro scripts, just append the username like this:
+    sudo ./sidewinder-x6-macro-keys supertux
+    # or
+    sudo ./sidewinder-x6-macro-keys -f supertux
 
 When the driver is first executed it will create the following directories:
     <HOME>/.sidewinderx6
