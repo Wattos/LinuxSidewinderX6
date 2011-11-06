@@ -40,7 +40,7 @@ on Ubuntu you can do:
 
 Tested on:
  * Ubuntu 11.10 64bit 
- * Fedora 15 64bit)
+ * Fedora 15 64bit
 
 ================================================================================
 BUILDING
@@ -62,9 +62,11 @@ This will run as a daemon in the background untill it is killed (using the kill 
     
 For security reasons it's better NOT to to let the root user execute your macros (as in the above examples), so you'll probably want to use your own user for this.
 In order to make any user the "executor" of your macro scripts, just append the username like this:
-    sudo ./sidewinder-x6-macro-keys supertux
+    sudo ./sidewinder-x6-macro-keys -u supertux
     # or
-    sudo ./sidewinder-x6-macro-keys -f supertux
+    sudo ./sidewinder-x6-macro-keys -f -u supertux
+
+NOTE: by default it should now find the user automatically if sudo was used
 
 When the driver is first executed it will create the following directories:
     <HOME>/.sidewinderx6
