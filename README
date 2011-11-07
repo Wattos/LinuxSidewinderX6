@@ -77,6 +77,11 @@ where <HOME> stands for the users home path.
 
 To create a macro, simply create a file called %x.sh in one of the profile folders. Eg. if you want a macro to be executed for button S5 in the keyboard, create a S5.sh script. Make sure you set it to executable (chmod +x S5.sh) otherwise it will not execute.
 
+Additionally, you can trigger a script when a profile is loaded. To do this, create a load.sh scripts under the profile you want. E.g.:
+
+echo notify-send -u low -i keyboard --expire-time=1000 --hint=int:transient:1 --category=device \'Eclipse Profile\' \'You have changed to the Sidewinder X6 Eclipse profile\' > ~/.sidewinderx6/p1/load.sh 
+
+
 If you want to simulate keypresses, use google, there should be already applications with that functionality (xdotool, for example).
 
 Finally, if you want to have your numpad working as a macro pad, create a file called macro_numpad and write the number 1 to it. E.g.:
