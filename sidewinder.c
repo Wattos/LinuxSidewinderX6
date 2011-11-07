@@ -101,7 +101,7 @@ char _sidewinder_profile_config[SIDEWINDER_MAX_PROFILE_COUNT][SIDEWINDER_MAX_PAT
 char _sidewinder_profile_load[SIDEWINDER_MAX_PROFILE_COUNT][SIDEWINDER_MAX_PATH_SIZE];
 
 /* The current profile of the keyboard */
-uint8_t _sidewinder_current_profile = 0;
+uint8_t _sidewinder_current_profile = 0xF0;
 
 /* Usb variables */
 libusb_context* 	  _sidewinder_usb_context = NULL;
@@ -319,6 +319,7 @@ void sidewinder_find_keyboard(){
 	} while(_sidewinder_keyboard_handle <= 0);
 	libusb_detach_kernel_driver(_sidewinder_keyboard_handle, SIDEWINDER_USB_MACRO_KEYS_INTERFACE);
 	libusb_claim_interface(_sidewinder_keyboard_handle, SIDEWINDER_USB_MACRO_KEYS_INTERFACE);
+	sidewinder_set_profile(_sidewinder_current_profile);
 }
 
 void sidewinder_run_macro(uint8_t macro){
@@ -347,6 +348,7 @@ void sidewinder_set_profile(uint8_t profile){
 	struct stat st;	
 	syslog(LOG_INFO, "Setting profile to %d", profile);
 
+	uint8_t changed = _sidewinder_current_profile != profile; 
 	_sidewinder_current_profile = profile % SIDEWINDER_MAX_PROFILE_COUNT;
 
 	uint8_t data[2];
@@ -361,6 +363,9 @@ void sidewinder_set_profile(uint8_t profile){
 							LIBUSB_REQUEST_SET_CONFIGURATION, 0x307, 0x1, data, sizeof(data), 0);
 
 	char* load = _sidewinder_profile_load[_sidewinder_current_profile];					
+	
+	if(!changed)
+		return;
 
 	syslog(LOG_DEBUG, "Looking for %s", load);
 	if(stat(load, &st) == 0){
