@@ -42,6 +42,7 @@
 #include <libusb-1.0/libusb.h>
 
 #define SIDEWINDER_PROGRAM_NAME "sidewinder-x6-macro-keys"
+#define SIDEWINDER_VERSION "v0.1"
 
 //Default username to run for
 #define SIDEWINDER_FALLBACK_USER "root"
@@ -143,6 +144,7 @@ int main(int argc, char** argv){
 void sidewinder_parse_arguments(int argc, char** argv) {
 	static struct option long_options[] = {
       {"help",        no_argument, 0, 'h'},
+      {"version",     no_argument, 0, 'v'},
       {"foreground",  no_argument, &_sidewinder_run_as_daemon, 0},
       {"user",  required_argument, 0, 'u'},
       {0, 0, 0, 0}
@@ -150,7 +152,7 @@ void sidewinder_parse_arguments(int argc, char** argv) {
 	int c;
 	int index;
 	_sidewinder_user_name[0] = '\0';
-	while ((c = getopt_long(argc, argv, "hfu:",  long_options, &index)) != -1)
+	while ((c = getopt_long(argc, argv, "vhfu:",  long_options, &index)) != -1)
 	{
 		switch(c){
 			case 'u':
@@ -159,13 +161,26 @@ void sidewinder_parse_arguments(int argc, char** argv) {
 			case 'f':
 				_sidewinder_run_as_daemon = 0;
 				break;
+			case 'v':
+				printf("%s at version: %s\n", SIDEWINDER_PROGRAM_NAME, SIDEWINDER_VERSION);
+				printf("\n%s  Copyright (C) %d  %s\n", SIDEWINDER_PROGRAM_NAME, 2011, "Filip Wieladek");
+				printf("This program comes with ABSOLUTELY NO WARRANTY\n");
+    				printf("This is free software, and you are welcome to redistribute it\n\n");
+				exit(SIDEWINDER_EXIT_SUCCESS);				
+				break;
 			case 'h':
 			default:
 				fprintf(stderr, "Usage: %s [-h] [-u <user>] [-f]\n", SIDEWINDER_PROGRAM_NAME);
 				fprintf(stderr, "\n");
+				fprintf(stderr, "Information Arguments: \n");
 				fprintf(stderr, "   -h, --help                prints this usage dialog\n");
+				fprintf(stderr, "   -v, --version             prints the version of the program\n");
+				fprintf(stderr, "\nUsage Arguments: \n");
 				fprintf(stderr, "   -u <user>, --user <user>  Uses the user defined in <user> for running the macros\n");
 				fprintf(stderr, "   -f, --foreground          Runs in the foreground instead of running as a daemon\n");
+				fprintf(stderr, "\n%s  Copyright (C) %d  %s\n", SIDEWINDER_PROGRAM_NAME, 2011, "Filip Wieladek");
+				fprintf(stderr, "This program comes with ABSOLUTELY NO WARRANTY\n");
+    				fprintf(stderr, "This is free software, and you are welcome to redistribute it\n\n");
 				exit(SIDEWINDER_EXIT_FAILURE);
 		}
 	}
