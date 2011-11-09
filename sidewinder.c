@@ -102,7 +102,7 @@ char _sidewinder_profile_config[SIDEWINDER_MAX_PROFILE_COUNT][SIDEWINDER_MAX_PAT
 char _sidewinder_profile_load[SIDEWINDER_MAX_PROFILE_COUNT][SIDEWINDER_MAX_PATH_SIZE];
 
 /* The current profile of the keyboard */
-uint8_t _sidewinder_current_profile = 0xF0;
+int16_t _sidewinder_current_profile = -1;
 
 /* Usb variables */
 libusb_context* 	  _sidewinder_usb_context = NULL;
@@ -324,11 +324,13 @@ void sidewinder_find_keyboard(){
 			sleep(5);
 		}
 		else {
-			libusb_detach_kernel_driver(_sidewinder_keyboard_handle, 0);
-			libusb_reset_device(_sidewinder_keyboard_handle);
-			libusb_attach_kernel_driver(_sidewinder_keyboard_handle, 0);
+			if(_sidewinder_current_profile < 0){
+				libusb_detach_kernel_driver(_sidewinder_keyboard_handle, 0);
+				libusb_reset_device(_sidewinder_keyboard_handle);
+				libusb_attach_kernel_driver(_sidewinder_keyboard_handle, 0);
+				sidewinder_set_profile(0);				
+			}			
 			_sidewinder_lastpress = 0;
-			sidewinder_set_profile(_sidewinder_current_profile);
 			break;
 		}
 	} while(_sidewinder_keyboard_handle <= 0);
@@ -530,6 +532,8 @@ void sidewinder_handle_keypress(){
 	actual_length = 0;
 
 	int32_t result = libusb_interrupt_transfer(_sidewinder_keyboard_handle, SIDEWINDER_USB_MACRO_KEYS_END_POINT, data, sizeof(data),&actual_length, 0);
+	syslog(LOG_INFO, "libusb_interrupt_transfer: %d, result: %d\n", actual_length, result);
+	
 	if(actual_length > 0 && result == 0){
 		uint64_t press = 0;
 		for(i = 0; i < sizeof(data); i++){
