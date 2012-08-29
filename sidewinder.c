@@ -460,6 +460,9 @@ void sidewinder_run(){
 		if(_sidewinder_keyboard_handle == NULL){
 			sidewinder_find_keyboard();
 		}
+#if DEBUG
+		printf("Main Loop iteration complete");
+#endif
 	}
 }
 
@@ -503,7 +506,7 @@ void sidewinder_handle_media_keypress(uint64_t press){
 	//ignore the first 2 bytes, these are used for knowing if it is a media key or macro key
 	press = press >> 8;
 	switch(press){
-		case 0x100000000000: /*Unmapped*/ break;
+		case 0x100000000000: sidewinder_run_macro(255); break;
 		case 0x110000000000: /*Unmapped*/ break;
 		case 0x140000000000: sidewinder_set_profile(_sidewinder_current_profile + 1); break;
 		case 0xcd: sidewinder_send_key(KEY_PLAYPAUSE); break;
