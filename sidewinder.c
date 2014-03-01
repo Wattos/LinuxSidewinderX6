@@ -29,7 +29,6 @@
 #include <syslog.h>
 #include <string.h>
 #include <signal.h>
-#include <unistd.h>
 
 #include <sys/time.h>
 #include <sys/types.h>
@@ -51,7 +50,7 @@
 #define SIDEWINDER_SUDO_USER_ENV_VAR "SUDO_USER"
 #define SIDEWINDER_USER_ENV_VAR "USER"
 #define SIDEWINDER_PROFILE_ROOT_FOLDER ".sidewinderx6"
-#define SIDEWINDER_MAX_PROFILE_COUNT 3
+#define SIDEWINDER_MAX_PROFILE_COUNT 15
 #define SIDEWINDER_PROFILE_FOLDER_FORMAT "p%d"
 #define SIDEWINDER_PROFILE_CONFIG "macro_numpad"
 #define SIDEWINDER_MACRO_FORMAT "S%d.sh"
@@ -370,7 +369,10 @@ void sidewinder_set_profile(uint8_t profile){
 
 	uint8_t data[2];
 	data[0] = 0x7;
-	data[1] = 0x1 << (_sidewinder_current_profile + 2);
+	uint8_t revprofile = 0;
+	uint8_t b;
+	for ( b=0 ; b < 4 ; b++ ) revprofile = (revprofile << 1) | (0x1 & ((_sidewinder_current_profile+1) >> b));
+	data[1] = revprofile << 1;
 
 	if(sidewinder_profile_has_macropad())
 		data[1] |= 0x1;
